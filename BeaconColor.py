@@ -1,10 +1,8 @@
 import math
-import multiprocessing as mp
 from dataclasses import dataclass
 from itertools import combinations_with_replacement as combs_with_rep
 from itertools import product
 from typing import List, Tuple, Any
-
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -12,11 +10,11 @@ import numpy as np
 @dataclass
 class BeaconColorData:
     target_rgb: Tuple[int, int, int] or list[int, int, int]
-    target_lab: Tuple[int, int, int] or list[int, int, int]
-    sequence: list[str, ...] or Tuple[str, ...]
-    result_rgb: Tuple[int, int, int] or list[int, int, int]
-    result_lab: Tuple[int, int, int] or list[int, int, int]
-    delta_e: int
+    target_lab: list[float, float, float]
+    sequence: list[str]
+    result_rgb: list[int, int, int]
+    result_lab: list[float, float, float]
+    delta_e: float
 
 
 class BeaconColorCalc:
@@ -38,7 +36,7 @@ class BeaconColorCalc:
                 self.combs.extend(product(self.colors.keys(), repeat=colors_count))
 
     @staticmethod
-    def _string_color_from_id_sequence(seq: list[int, ...]) -> list[str | Any]:
+    def _string_color_from_id_sequence(seq: list[str]) -> list[str | Any]:
         return [BeaconColorCalc.colors.get(color_id, "Undefined color_id") for color_id in seq]
 
     @staticmethod
@@ -50,14 +48,14 @@ class BeaconColorCalc:
         return int(color[1:3], 16), int(color[3:5], 16), int(color[5:7], 16)
 
     @staticmethod
-    def _float_rgb_to_integer(rgb: list[float, float, float]) -> list[Any]:
+    def _float_rgb_to_integer(rgb: list[float]) -> list[Any]:
         return [math.floor(v * 255) for v in rgb]
 
     @staticmethod
     def _separate_rgb(rgb: int) -> Tuple[int, int, int]:
         return (rgb & 0xff0000) >> 16, (rgb & 0x00ff00) >> 8, (rgb & 0x0000ff)
 
-    def _rgb2lab(self, rgb: list[int, int, int]) -> List[float]:
+    def _rgb2lab(self, rgb: list[int]) -> list[float]:
         # Проверяем, были ли уже вычислены значения Lab для данного RGB цвета
         if tuple(rgb) in self.color_lab_map:
             return self.color_lab_map[tuple(rgb)]
@@ -84,7 +82,7 @@ class BeaconColorCalc:
         return lab_values
 
     @staticmethod
-    def _delta_e(lab_a: list[float, float, float], lab_b: list[float, float, float]) -> float:
+    def _delta_e(lab_a: list[float], lab_b: list[float]) -> float:
         delta_l = lab_a[0] - lab_b[0]
         delta_a = lab_a[1] - lab_b[1]
         delta_b = lab_a[2] - lab_b[2]
@@ -102,7 +100,7 @@ class BeaconColorCalc:
         return 0 if i < 0 else math.sqrt(i)
 
     @staticmethod
-    def create_beacon_color_data(target_rgb, target_lab, best_sequence_str, best_delta_e, result_rgb, result_lab):
+    def _create_beacon_color_data(target_rgb, target_lab, best_sequence_str, best_delta_e, result_rgb, result_lab):
         return BeaconColorData(
             target_rgb=target_rgb,
             target_lab=target_lab,
@@ -111,7 +109,7 @@ class BeaconColorCalc:
             result_rgb=result_rgb,
             result_lab=result_lab)
 
-    def _find_best_combination(self, chunk: list[Tuple[str, ...]], target_lab: list[float, float, float]):
+    def _find_best_combination(self, chunk: list[Tuple[str, str, str]], target_lab: list[float]):
         min_delta_e = float("inf")
         min_sequence = []
         for comb in chunk:
@@ -129,38 +127,12 @@ class BeaconColorCalc:
         best_sequence_str = self._string_color_from_id_sequence(best_sequence)
         result_rgb = self._sequence_to_color_float_average(best_sequence)
         result_lab = self._rgb2lab(result_rgb)
-        data = self.create_beacon_color_data(target_rgb, target_lab, best_sequence_str, best_delta_e, result_rgb,
-                                             result_lab)
+        data = self._create_beacon_color_data(target_rgb, target_lab, best_sequence_str, best_delta_e, result_rgb,
+                                              result_lab)
 
         return data
 
-    def color_to_sequence_parallel(self, target_rgb, num_processes=mp.cpu_count()):
-        target_lab = self._rgb2lab(target_rgb)
-
-        chunks = self._chunkify(self.combs, num_processes)
-        pool = mp.Pool(processes=num_processes)
-
-        results = [pool.apply_async(self._find_best_combination, args=(chunk, target_lab)) for chunk in chunks]
-        pool.close()
-        pool.join()
-
-        best_delta_e = float("inf")
-        best_sequence = []
-        for result in results:
-            sequence, delta_e_value = result.get()
-            if delta_e_value < best_delta_e:
-                best_delta_e = delta_e_value
-                best_sequence = sequence
-
-        best_sequence_str = self._string_color_from_id_sequence(best_sequence)
-        result_rgb = self._sequence_to_color_float_average(best_sequence)
-        result_lab = self._rgb2lab(result_rgb)
-        data = self.create_beacon_color_data(target_rgb, target_lab, best_sequence_str, best_delta_e, result_rgb,
-                                             result_lab)
-
-        return data
-
-    def _sequence_to_color_float_average(self, color_str: Tuple[str]) -> List[int]:
+    def _sequence_to_color_float_average(self, color_str: Tuple[str, str, str]) -> List[int]:
         total_r, total_g, total_b = 0, 0, 0
         count = len(color_str)
 
