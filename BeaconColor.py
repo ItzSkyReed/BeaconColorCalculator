@@ -132,17 +132,17 @@ class BeaconColorCalc:
 
         return data
 
-    def _sequence_to_color_float_average(self, color_str: Tuple[str, str, str]) -> List[int]:
+    def _sequence_to_color_float_average(self, colors_seq: Tuple[int]) -> List[int]:
         total_r, total_g, total_b = 0, 0, 0
-        count = len(color_str)
+        count = len(colors_seq)
 
-        r, g, b = self.color_rgb_map[color_str[0]]
+        r, g, b = self.color_rgb_map[colors_seq[0]]
         total_r += r
         total_g += g
         total_b += b
 
         for i in range(1, count):
-            r, g, b = self.color_rgb_map[color_str[i]]
+            r, g, b = self.color_rgb_map[colors_seq[i]]
             total_r += r
             total_g += g
             total_b += b
