@@ -40,6 +40,10 @@ class BeaconColorCalc:
         return [BeaconColorCalc.colors.get(color_id, "Undefined color_id") for color_id in seq]
 
     @staticmethod
+    def _float_rgb_to_integer(rgb: list[float]) -> list[Any]:
+        return [math.floor(v * 255) for v in rgb]
+
+    @staticmethod
     def color_string_to_rgb(color: str) -> Tuple[int, int, int]:
         return int(color[1:3], 16), int(color[3:5], 16), int(color[5:7], 16)
 
@@ -76,7 +80,7 @@ class BeaconColorCalc:
     def _delta_e1976(lab_a: list[float], lab_b: list[float]) -> float:
         l1, a1, b1 = lab_a
         l2, a2, b2 = lab_b
-        return ((l1 - l2) ** 2 + (a1 - a2) ** 2 + (b1 - b2 ** 2)) ** 0.5
+        return abs(((l1 - l2) ** 2 + (a1 - a2) ** 2 + (b1 - b2 ** 2)) ** 0.5)
 
     @staticmethod
     def _delta_e2000(lab_a: list[float], lab_b: list[float]) -> float:
@@ -134,22 +138,27 @@ class BeaconColorCalc:
         total_r, total_g, total_b = 0, 0, 0
         count = len(colors_seq)
 
-        for color in colors_seq:
-            r, g, b = self.color_rgb_map[color]
-            total_r += r * count
-            total_g += g * count
-            total_b += b * count
+        r, g, b = self.color_rgb_map[colors_seq[0]]
+        total_r += r
+        total_g += g
+        total_b += b
 
-        return [int(total_r // (255 * count)), int(total_g // (255 * count)), int(total_b // (255 * count))]
+        for i in range(1, count):
+            r, g, b = self.color_rgb_map[colors_seq[i]]
+            total_r += r
+            total_g += g
+            total_b += b
 
-     @staticmethod
-     def create_color_image(color_left: Tuple[int, int, int] or List[int, int, int],
-                            color_right: Tuple[int, int, int] or List[int, int, int], width=200, height=100):
-         color_left = tuple(c / 255 for c in color_left)
-         color_right = tuple(c / 255 for c in color_right)
-         left_half = np.full((height, width // 2, 3), color_left)
-         right_half = np.full((height, width // 2, 3), color_right)
-         image = np.concatenate((left_half, right_half), axis=1)
-         plt.imshow(image)
-         plt.axis('off')
-         plt.show()
+        return self._float_rgb_to_integer([total_r / (count * 255), total_g / (count * 255), total_b / (count * 255)])
+
+    @staticmethod
+    def create_color_image(color_left: Tuple[int, int, int] or List[int, int, int],
+                           color_right: Tuple[int, int, int] or List[int, int, int], width=200, height=100):
+        color_left = tuple(c / 255 for c in color_left)
+        color_right = tuple(c / 255 for c in color_right)
+        left_half = np.full((height, width // 2, 3), color_left)
+        right_half = np.full((height, width // 2, 3), color_right)
+        image = np.concatenate((left_half, right_half), axis=1)
+        plt.imshow(image)
+        plt.axis('off')
+        plt.show()
