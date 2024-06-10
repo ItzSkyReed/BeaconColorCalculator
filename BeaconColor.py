@@ -3,8 +3,8 @@ from dataclasses import dataclass
 from itertools import combinations_with_replacement as combs_with_rep
 from itertools import product
 from typing import List, Tuple, Any
-import matplotlib.pyplot as plt
-import numpy as np
+ import matplotlib.pyplot as plt
+ import numpy as np
 
 
 @dataclass
@@ -40,23 +40,14 @@ class BeaconColorCalc:
         return [BeaconColorCalc.colors.get(color_id, "Undefined color_id") for color_id in seq]
 
     @staticmethod
-    def _chunkify(lst: List[Any], n: int) -> List[List[Tuple[str]]]:
-        return [lst[i::n] for i in range(n)]
-
-    @staticmethod
     def color_string_to_rgb(color: str) -> Tuple[int, int, int]:
         return int(color[1:3], 16), int(color[3:5], 16), int(color[5:7], 16)
-
-    @staticmethod
-    def _float_rgb_to_integer(rgb: list[float]) -> list[Any]:
-        return [math.floor(v * 255) for v in rgb]
 
     @staticmethod
     def _separate_rgb(rgb: int) -> Tuple[int, int, int]:
         return (rgb & 0xff0000) >> 16, (rgb & 0x00ff00) >> 8, (rgb & 0x0000ff)
 
     def _rgb2lab(self, rgb: list[int]) -> list[float]:
-        # Проверяем, были ли уже вычислены значения Lab для данного RGB цвета
         if tuple(rgb) in self.color_lab_map:
             return self.color_lab_map[tuple(rgb)]
 
@@ -82,7 +73,13 @@ class BeaconColorCalc:
         return lab_values
 
     @staticmethod
-    def _delta_e(lab_a: list[float], lab_b: list[float]) -> float:
+    def _delta_e1976(lab_a: list[float], lab_b: list[float]) -> float:
+        l1, a1, b1 = lab_a
+        l2, a2, b2 = lab_b
+        return ((l1 - l2) ** 2 + (a1 - a2) ** 2 + (b1 - b2 ** 2)) ** 0.5
+
+    @staticmethod
+    def _delta_e2000(lab_a: list[float], lab_b: list[float]) -> float:
         delta_l = lab_a[0] - lab_b[0]
         delta_a = lab_a[1] - lab_b[1]
         delta_b = lab_a[2] - lab_b[2]
@@ -109,21 +106,22 @@ class BeaconColorCalc:
             result_rgb=result_rgb,
             result_lab=result_lab)
 
-    def _find_best_combination(self, chunk: list[Tuple[str, str, str]], target_lab: list[float]):
+    def _find_best_combination(self, chunk: list[Tuple[str, str, str]], target_lab: list[float], is_accurate: bool):
         min_delta_e = float("inf")
         min_sequence = []
+        d_e_func = self._delta_e2000 if is_accurate else self._delta_e1976
         for comb in chunk:
             color = self._sequence_to_color_float_average(comb)
             lab = self._rgb2lab(color)
-            delta = self._delta_e(lab, target_lab)
+            delta = d_e_func(lab, target_lab)
             if delta < min_delta_e:
                 min_delta_e = delta
                 min_sequence = comb
         return min_sequence, min_delta_e
 
-    def color_to_sequence(self, target_rgb):
+    def color_to_sequence(self, target_rgb, is_accurate: bool = True):
         target_lab = self._rgb2lab(target_rgb)
-        best_sequence, best_delta_e = self._find_best_combination(self.combs, target_lab)
+        best_sequence, best_delta_e = self._find_best_combination(self.combs, target_lab, is_accurate)
         best_sequence_str = self._string_color_from_id_sequence(best_sequence)
         result_rgb = self._sequence_to_color_float_average(best_sequence)
         result_lab = self._rgb2lab(result_rgb)
@@ -136,28 +134,22 @@ class BeaconColorCalc:
         total_r, total_g, total_b = 0, 0, 0
         count = len(colors_seq)
 
-        r, g, b = self.color_rgb_map[colors_seq[0]]
-        total_r += r
-        total_g += g
-        total_b += b
+        for color in colors_seq:
+            r, g, b = self.color_rgb_map[color]
+            total_r += r * count
+            total_g += g * count
+            total_b += b * count
 
-        for i in range(1, count):
-            r, g, b = self.color_rgb_map[colors_seq[i]]
-            total_r += r
-            total_g += g
-            total_b += b
+        return [int(total_r // (255 * count)), int(total_g // (255 * count)), int(total_b // (255 * count))]
 
-        avg_r, avg_g, avg_b = total_r / (count * 255), total_g / (count * 255), total_b / (count * 255)
-        return self._float_rgb_to_integer([avg_r, avg_g, avg_b])
-
-    @staticmethod
-    def create_color_image(color_left: Tuple[int, int, int] or List[int, int, int],
-                           color_right: Tuple[int, int, int] or List[int, int, int], width=200, height=100):
-        color_left = tuple(c / 255 for c in color_left)
-        color_right = tuple(c / 255 for c in color_right)
-        left_half = np.full((height, width // 2, 3), color_left)
-        right_half = np.full((height, width // 2, 3), color_right)
-        image = np.concatenate((left_half, right_half), axis=1)
-        plt.imshow(image)
-        plt.axis('off')
-        plt.show()
+     @staticmethod
+     def create_color_image(color_left: Tuple[int, int, int] or List[int, int, int],
+                            color_right: Tuple[int, int, int] or List[int, int, int], width=200, height=100):
+         color_left = tuple(c / 255 for c in color_left)
+         color_right = tuple(c / 255 for c in color_right)
+         left_half = np.full((height, width // 2, 3), color_left)
+         right_half = np.full((height, width // 2, 3), color_right)
+         image = np.concatenate((left_half, right_half), axis=1)
+         plt.imshow(image)
+         plt.axis('off')
+         plt.show()
