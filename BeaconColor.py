@@ -3,8 +3,8 @@ from dataclasses import dataclass
 from itertools import combinations_with_replacement as combs_with_rep
 from itertools import product
 from typing import List, Tuple, Any
- import matplotlib.pyplot as plt
- import numpy as np
+import matplotlib.pyplot as plt
+import numpy as np
 
 
 @dataclass
