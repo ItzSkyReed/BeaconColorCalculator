@@ -3,17 +3,15 @@ from dataclasses import dataclass
 from itertools import combinations_with_replacement as combs_with_rep
 from itertools import product
 from typing import List, Tuple, Any
-import matplotlib.pyplot as plt
-import numpy as np
 
 
 @dataclass
 class BeaconColorData:
-    target_rgb: Tuple[int, int, int] or list[int, int, int]
-    target_lab: list[float, float, float]
-    sequence: list[str]
-    result_rgb: list[int, int, int]
-    result_lab: list[float, float, float]
+    target_rgb: Tuple[int, int, int] or List[int]
+    target_lab: List[float]
+    sequence: List[str]
+    result_rgb: List[int]
+    result_lab: List[float]
     delta_e: float
 
 
@@ -24,16 +22,17 @@ class BeaconColorCalc:
     colors_hex_map = {
         0: 0xf9fffe, 1: 0x9d9d97, 2: 0x474f52, 3: 0x1d1d21, 4: 0x835432, 5: 0xb02e26, 6: 0xf9801d, 7: 0xfed83d,
         8: 0x80c71f, 9: 0x5e7c16, 10: 0x169c9c, 11: 0x3ab3da, 12: 0x3c44aa, 13: 0x8932b8, 14: 0xc74ebd, 15: 0xf38baa}
+    _combs = []
 
     def __init__(self):
         self.color_rgb_map = {k: self._separate_rgb(v) for k, v in self.colors_hex_map.items()}
         self.color_lab_map = {}
-        self.combs = []
-        for colors_count in range(1, 7):
-            if colors_count > 4:
-                self.combs.extend(combs_with_rep(self.colors.keys(), colors_count))
-            else:
-                self.combs.extend(product(self.colors.keys(), repeat=colors_count))
+        if not self._combs:
+            for colors_count in range(1, 7):
+                if colors_count > 5:
+                    self._combs.extend(combs_with_rep(self.colors.keys(), colors_count))
+                else:
+                    self._combs.extend(product(self.colors.keys(), repeat=colors_count))
 
     @staticmethod
     def _string_color_from_id_sequence(seq: list[str]) -> list[str | Any]:
@@ -125,7 +124,7 @@ class BeaconColorCalc:
 
     def color_to_sequence(self, target_rgb, is_accurate: bool = True):
         target_lab = self._rgb2lab(target_rgb)
-        best_sequence, best_delta_e = self._find_best_combination(self.combs, target_lab, is_accurate)
+        best_sequence, best_delta_e = self._find_best_combination(self._combs, target_lab, is_accurate)
         best_sequence_str = self._string_color_from_id_sequence(best_sequence)
         result_rgb = self._sequence_to_color_float_average(best_sequence)
         result_lab = self._rgb2lab(result_rgb)
@@ -135,30 +134,16 @@ class BeaconColorCalc:
         return data
 
     def _sequence_to_color_float_average(self, colors_seq: Tuple[int]) -> List[int]:
-        total_r, total_g, total_b = 0, 0, 0
-        count = len(colors_seq)
+        total_r, total_g, total_b = 0.0, 0.0, 0.0
 
         r, g, b = self.color_rgb_map[colors_seq[0]]
-        total_r += r
-        total_g += g
-        total_b += b
+        total_r += r / 255.0
+        total_g += g / 255.0
+        total_b += b / 255.0
 
-        for i in range(1, count):
+        for i in range(1, len(colors_seq)):
             r, g, b = self.color_rgb_map[colors_seq[i]]
-            total_r += r
-            total_g += g
-            total_b += b
-
-        return self._float_rgb_to_integer([total_r / (count * 255), total_g / (count * 255), total_b / (count * 255)])
-
-    @staticmethod
-    def create_color_image(color_left: Tuple[int, int, int] or List[int, int, int],
-                           color_right: Tuple[int, int, int] or List[int, int, int], width=200, height=100):
-        color_left = tuple(c / 255 for c in color_left)
-        color_right = tuple(c / 255 for c in color_right)
-        left_half = np.full((height, width // 2, 3), color_left)
-        right_half = np.full((height, width // 2, 3), color_right)
-        image = np.concatenate((left_half, right_half), axis=1)
-        plt.imshow(image)
-        plt.axis('off')
-        plt.show()
+            total_r = (total_r + r / 255.0) / 2.0
+            total_g = (total_g + g / 255.0) / 2.0
+            total_b = (total_b + b / 255.0) / 2.0
+        return self._float_rgb_to_integer([total_r, total_g, total_b])
