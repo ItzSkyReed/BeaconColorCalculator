@@ -44,7 +44,8 @@ class BeaconColorCalc:
 
     @staticmethod
     def color_string_to_rgb(color: str) -> Tuple[int, int, int]:
-        return int(color[1:3], 16), int(color[3:5], 16), int(color[5:7], 16)
+        color_int = int(color[1:], 16)
+        return (color_int >> 16) & 0xFF, (color_int >> 8) & 0xFF, color_int & 0xFF
 
     @staticmethod
     def _separate_rgb(rgb: int) -> Tuple[int, int, int]:
