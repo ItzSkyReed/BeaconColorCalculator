@@ -93,11 +93,11 @@ class BeaconColorCalc:
         delta_h = 0 if delta_h < 0 else delta_h ** 0.5
         sc = 1.0 + 0.045 * c1
         sh = 1.0 + 0.015 * c1
-        delta_l_k_l_s_l = delta_l / 1.0
+        delta_l_k_l_s_l = delta_l
         delta_c_k_c_s_c = delta_c / sc
         delta_h_k_h_s_h = delta_h / sh
         i = delta_l_k_l_s_l ** 2 + delta_c_k_c_s_c ** 2 + delta_h_k_h_s_h ** 2
-        return 0 if i < 0 else math.sqrt(i)
+        return i ** 0.5
 
     @staticmethod
     def _create_beacon_color_data(target_rgb, target_lab, best_sequence_str, best_delta_e, result_rgb, result_lab):
